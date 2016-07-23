@@ -1,0 +1,25 @@
+listen:
+ http_proxy:
+   - 127.0.0.1:80
+
+ sni_proxy:
+   - 127.0.0.1:443
+
+ http_tunnel2:
+   - *:3128
+
+whitelist:
+  - www.baidu.com:80
+
+dnsresolver:
+  - 172.16.10.4
+
+timeout:
+  dns_resolve: 1000
+  upstream_connect: 5000
+  upstream_read: 60000
+  client_read: 5000
+
+
+
+
