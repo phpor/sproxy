@@ -55,13 +55,13 @@ func (c *config) GetTimeout(alias string) int64 {
 func (c *config) GetWhitelist() []*addr {
 	return c.whitelist
 }
-func (c *config) IsAccessAllow(host string) bool {
+func (c *config) GetBackend(host string) *addr  {
 	for _, addr := range c.whitelist {
 		if addr.host == host {
-			return true
+			return addr
 		}
 	}
-	return false
+	return nil
 }
 
 func (c *config) parseListener(data map[string]interface{}) {

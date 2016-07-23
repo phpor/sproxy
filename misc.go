@@ -12,3 +12,4 @@ func SetLogger(l *syslog.Writer)  {
 func SetConfig(config *config)  {
 	conf = config
 }
+
