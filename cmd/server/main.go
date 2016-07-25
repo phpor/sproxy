@@ -30,7 +30,7 @@ func main() {
 		log.Debug("start to listen " + l.String())
 		wg.Add(1)
 		go func() {
-			sproxy.ServeHttpProxy(l)
+			sproxy.ServeTcp(l, sproxy.ServeHttpProxy)
 			wg.Done()
 		}()
 	}
@@ -38,7 +38,7 @@ func main() {
 		log.Debug("start to listen " + l.String())
 		wg.Add(1)
 		go func() {
-			sproxy.ServeSniProxy(l)
+			sproxy.ServeTcp(l, sproxy.ServeSniProxy)
 			wg.Done()
 		}()
 	}
@@ -46,10 +46,11 @@ func main() {
 		log.Debug("start to listen " + l.String())
 		wg.Add(1)
 		go func() {
-			sproxy.ServeHttpTunnelProxy(l)
+			sproxy.ServeTcp(l, sproxy.ServeHttpTunnelProxy)
 			wg.Done()
 		}()
 	}
+	log.Debug("Started")
 	c := make(chan os.Signal, 10)
 	signal.Notify(c, syscall.SIGINT, syscall.SIGHUP)
 	<-c

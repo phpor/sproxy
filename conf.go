@@ -3,6 +3,7 @@ package sproxy
 import (
 	"fmt"
 	"github.com/astaxie/beego/config/yaml"
+	"strings"
 )
 
 type addr struct {
@@ -21,7 +22,7 @@ type config struct {
 	timeout map[string]int64
 	dnsResolver []string
 	listenner map[string][]*addr
-	whitelist []*addr
+	whitelist []string
 }
 
 func NewConfig(conf_file string) *config {
@@ -30,7 +31,6 @@ func NewConfig(conf_file string) *config {
 		panic("load config file " + conf_file + " fail: " + err.Error())
 	}
 
-	fmt.Printf("%v\n\n", conf_data)
 	c := &config{
 		timeout: make(map[string]int64),
 		dnsResolver: nil,
@@ -52,21 +52,28 @@ func (c *config) GetDnsResolver() []string {
 func (c *config) GetTimeout(alias string) int64 {
 	return c.timeout[alias]
 }
-func (c *config) GetWhitelist() []*addr {
+func (c *config) GetWhitelist() []string {
 	return c.whitelist
 }
-func (c *config) GetBackend(host string) *addr  {
+func (c *config) IsAccessAllow(hostport string)bool  {
 	for _, addr := range c.whitelist {
-		if addr.host == host {
+		if addr == hostport {
+			return true
+		}
+	}
+	return false
+}
+func (c *config) GetBackend(host string) string  {
+	for _, addr := range c.whitelist {
+		if strings.Split(addr, ":")[0] == host {
 			return addr
 		}
 	}
-	return nil
+	return ""
 }
 
 func (c *config) parseListener(data map[string]interface{}) {
 	if v, exists := data["listen"]; exists {
-		fmt.Printf("%v\n", v)
 		item := v.(map[string]interface{})
 		for k, _ := range item {
 			c.listenner[k] = parseAddr(item, k)
@@ -74,11 +81,7 @@ func (c *config) parseListener(data map[string]interface{}) {
 	}
 }
 func (c *config) parseDnsResolver(data map[string]interface{}){
-	if v, exists := data["dnsresolver"]; exists {
-		for _, v := range v.([]interface{}) {
-			c.dnsResolver = append(c.dnsResolver, v.(string))
-		}
-	}
+	c.dnsResolver = parseStrSlice(data, "dnsresolver")
 }
 func (c *config) parseTimeout(data map[string]interface{}) {
 	if v, exists := data["timeout"]; exists {
@@ -88,7 +91,15 @@ func (c *config) parseTimeout(data map[string]interface{}) {
 	}
 }
 func (c *config) parseWhitelist(data map[string]interface{})  {
-	c.whitelist = parseAddr(data, "whitelist")
+	c.whitelist = parseStrSlice(data, "whitelist")
+}
+func parseStrSlice(data map[string]interface{}, alias string) (res []string) {
+	if v, exists := data[alias]; exists {
+		for _, v := range v.([]interface{}) {
+			res = append(res, v.(string))
+		}
+	}
+	return
 }
 func parseAddr(data map[string]interface{}, alias string) (res []*addr) {
 	if v, exists := data[alias]; exists {

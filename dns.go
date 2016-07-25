@@ -15,6 +15,6 @@ func nslookup(hostname string) (string, error) {
 		fmt.Println(err.Error())
 		return "", err
 	}
-	fmt.Printf("%v", addr)
+	//fmt.Printf("%v", addr)
 	return addr[0], nil
 }

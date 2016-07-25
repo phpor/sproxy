@@ -5,14 +5,15 @@ listen:
  sni_proxy:
    - 127.0.0.1:443
 
- http_tunnel2:
-   - *:3128
+ http_tunnel:
+   - 127.0.0.1:3128
 
 whitelist:
-  - www.baidu.com:80
+  - "www.baidu.com:443"
+  - "www.baidu.com:80"
 
 dnsresolver:
-  - 172.16.10.4
+  - "172.16.10.4"
 
 timeout:
   dns_resolve: 1000

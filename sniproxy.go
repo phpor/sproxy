@@ -5,97 +5,68 @@ import (
 	"net"
 	"github.com/phpor/sproxy/tls"
 	"io"
-	"os/signal"
-	"syscall"
-	"os"
-	"sync"
+	"strings"
 )
 
-func ServeSniProxy(l *addr)  {
-	ln, err := net.Listen("tcp4", l.String())
 
-	if err != nil {
-		panic("error listening on tcp port "+ l.String() + ":" + err.Error())
-	}
-
-	defer ln.Close()
-
-	s := make(chan os.Signal, 10)
-	signal.Notify(s, syscall.SIGINT, syscall.SIGHUP)
-	go func() {
-		<-s
-		ln.Close() //如果这个在main中open，则可以只在main中处理信号了，就不需要在每个listenner中处理信号了
-	}()
-	var wg sync.WaitGroup //确保每个层级的goroutine都能等子goroutine退出后自己才退出，才能保证不会中断未处理完成的请求
-	for {
-		c, err := ln.Accept() //这里不能直接处理信号,而是要在其它协程中接收到信号后，直接把ln给关掉，这里立刻就会返回失败
-		if err != nil {
-			if Stats.Stopping {
-				log.Err("Stopped listenner "+l.String())
-				break
-			}
-			log.Err("Error accepting new connection:  " + err.Error())
-			break
-		}
-		Stats.CurrentTaskNum++
-		wg.Add(1)
-		go func() {
-			server(c)
-			wg.Done()
-		}()
-	}
-	wg.Wait()
-}
-
-
-func server(c net.Conn)  {
+func ServeSniProxy(c net.Conn)  {
 	defer func() {
 		c.Close()
 		Stats.CurrentTaskNum--
 	}()
 	//set timeout to connection
 	clientHelloMsg, err := tls.ReadClientHello(c)
+	i := 0
+	i++ ;fmt.Println(i)
 	if err != nil {
 		log.Err("Error read client hello:  " + err.Error())
 		return
 	}
+	i++ ;fmt.Println(i)
 	if clientHelloMsg.ServerName == "" {
 		log.Warning("Client has no sni: "+ c.LocalAddr().String() +" <= "+ c.RemoteAddr().String())
 		return
 	}
+	i++ ;fmt.Println(i)
 	hostname := clientHelloMsg.ServerName
 	backendAddr := conf.GetBackend(hostname)
-	if backendAddr == nil {
+	if backendAddr == "" {
 		log.Warning(fmt.Sprintf("Access %s is not allow", hostname))
 		return
 	}
+	port := strings.Split(backendAddr, ":")[1]
+	i++ ;fmt.Println(i)
 	hostip, err := nslookup(hostname)
 	if err != nil {
 		log.Warning("Nslookup fail: " + hostname)
 		return
 	}
-	dst := fmt.Sprintf("%s:%d", hostip, backendAddr.port)
+	i++ ;fmt.Println(i)
+	dst := fmt.Sprintf("%s:%s", hostip, port)
 	conn, err := net.Dial("tcp", dst)
 	if err != nil {
 		log.Warning(fmt.Sprintf("connect %s fail\n", dst))
 		return
 	}
+	i++ ;fmt.Println(i)
 	log.Debug(fmt.Sprintf("connected to %s\n", dst))
 	defer conn.Close()
 
+	i++ ;fmt.Println(i)
 	_, err = io.WriteString(conn, string(clientHelloMsg.RawData))
 	if err != nil {
 		log.Warning(fmt.Sprintf("Write client hello fail: %s", err.Error()))
 	}
 
+	i++ ;fmt.Println(i)
 	go func() {
-		_ ,err := io.Copy(c, conn)
+		_, err := io.Copy(conn, c) //copy to upstream
 		if err != nil {
-			log.Warning(fmt.Sprintf("2: error: %s\n", err.Error()))
+			//log.Warning(fmt.Sprintf("3: error: %s\n", err.Error()))
 		}
 	}()
-	_, err = io.Copy(conn, c)
+	_ ,err = io.Copy(c, conn) //copy to downstream
 	if err != nil {
-		log.Warning(fmt.Sprintf("3: error: %s\n", err.Error()))
+		//这个错误基本是因为数据输出完了而关闭导致的, 这里写的很有可能会出问题
 	}
 }
