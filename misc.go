@@ -9,7 +9,11 @@ import (
 	"os/signal"
 	"time"
 	"fmt"
+	"io"
+	"strings"
+	"errors"
 )
+var ErrAccessForbidden = errors.New("Access deny")
 
 var log *syslog.Writer
 var conf *config
@@ -21,11 +25,11 @@ func SetConfig(config *config)  {
 	conf = config
 }
 
-func ServeTcp(l *addr, handler func(net.Conn))  {
-	ln, err := net.Listen("tcp4", l.String())
+func ServeTcp(l string, handler func(net.Conn)) error {
+	ln, err := net.Listen("tcp4", l)
 
 	if err != nil {
-		panic("error listening on tcp port "+ l.String() + ":" + err.Error())
+		panic("error listening on tcp port "+ l + ":" + err.Error())
 	}
 
 	defer ln.Close()
@@ -37,26 +41,88 @@ func ServeTcp(l *addr, handler func(net.Conn))  {
 		ln.Close() //如果这个在main中open，则可以只在main中处理信号了，就不需要在每个listenner中处理信号了
 	}()
 	var wg sync.WaitGroup //确保每个层级的goroutine都能等子goroutine退出后自己才退出，才能保证不会中断未处理完成的请求
+	var tempDelay time.Duration // how long to sleep on accept failure
 	for {
-		c, err := ln.Accept() //这里不能直接处理信号,而是要在其它协程中接收到信号后，直接把ln给关掉，这里立刻就会返回失败
-		if err != nil {
+		downstream, err := ln.Accept() //这里不能直接处理信号,而是要在其它协程中接收到信号后，直接把ln给关掉，这里立刻就会返回失败
+		if err != nil { // 如何判断这个错误其实是ln close导致的？
 			if Stats.Stopping {
-				log.Err("Stopped listenner "+l.String())
+				log.Err("Stopped listenner "+l)
 				break
 			}
+			if ne, ok := err.(net.Error); ok && ne.Temporary() {
+				if tempDelay == 0 {
+					tempDelay = 5 * time.Millisecond
+				} else {
+					tempDelay *= 2
+				}
+				if max := 1 * time.Second; tempDelay > max {
+					tempDelay = max
+				}
+				log.Err(fmt.Sprintf("http: Accept error: %v; retrying in %v", err, tempDelay))
+				time.Sleep(tempDelay)
+				continue
+			}
+
 			log.Err("Error accepting new connection:  " + err.Error())
-			break
+			return err
 		}
 		Stats.CurrentTaskNum++
 		wg.Add(1)
 		go func() {
 			//设置超时
 			s := time.Now()
-			handler(c)
+			handler(downstream)
 			e := time.Now()
-			log.Err(fmt.Sprintf("%s  client %s time use %d ms",l.String(), c.RemoteAddr().String(), e.Sub(s).Nanoseconds()/1000000))
+			log.Err(fmt.Sprintf("%s  client %s time use %d ms",l, downstream.RemoteAddr().String(), e.Sub(s).Nanoseconds()/1000000))
 			wg.Done()
 		}()
 	}
 	wg.Wait()
+	return nil
+}
+
+func createUpstream(hostname string) (net.Conn, error)  {
+	port := ""
+	target := hostname
+	arrTarget := strings.Split(target, ":")
+	hostname = arrTarget[0]
+	if len(arrTarget) == 2 {
+		port = arrTarget[1]
+	}
+
+	backendAddr := conf.GetBackend(hostname)
+
+	if backendAddr == "" {
+		log.Warning(ErrAccessForbidden.Error() + ": " + hostname)
+		return nil, ErrAccessForbidden
+	}
+	if port == "" {
+		port = strings.Split(backendAddr, ":")[1]
+	}
+
+	hostip, err := nslookup(hostname)
+	if err != nil {
+		log.Warning("Nslookup fail: " + hostname)
+		return nil, err
+	}
+	fmt.Printf("access %s(%s):%s\n", hostname, hostip, port)
+	dst := fmt.Sprintf("%s:%s", hostip, port)
+	upstream, err := net.Dial("tcp", dst)
+	if err != nil {
+		log.Warning(fmt.Sprintf("connect %s fail\n", dst))
+		return nil, err
+	}
+	return upstream, nil
+}
+func ioCopy(downstream, upstream net.Conn) (int64, int64) {
+	var len_up int64
+	//io.Copy 中有两个判断分支，其实这里的conn确实有ReadFrom和WriteTo方法的，不需要走下面的循环
+	go func() {
+		len_up, _ = io.Copy(upstream, downstream) //copy to upstream
+		// 下面之所以敢关闭上下游连接，基于一个假设：client端只有收到全部响应之后才会关闭连接（一般是这样的）
+		downstream.Close() //这里的Close主要是为了让另外一个方向的copy立即退出， 重复Close不会导致错误
+		upstream.Close()
+	}()
+	len_down ,_ := io.Copy(downstream, upstream) //copy to downstream
+	return len_down, len_up
 }

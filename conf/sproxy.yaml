@@ -1,12 +1,12 @@
 listen:
  http_proxy:
-   - 127.0.0.1:80
+   - ":80"
 
  sni_proxy:
-   - 127.0.0.1:443
+   - ":443"
 
  http_tunnel:
-   - 127.0.0.1:3128
+   - ":3128"
 
 whitelist:
   - "www.baidu.com:443"

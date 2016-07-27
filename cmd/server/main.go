@@ -27,26 +27,35 @@ func main() {
 
 	var wg sync.WaitGroup
 	for _, l := range conf.GetListener("http_proxy") {
-		log.Debug("start to listen " + l.String())
+		log.Debug("start to listen " + l)
 		wg.Add(1)
 		go func() {
-			sproxy.ServeTcp(l, sproxy.ServeHttpProxy)
+			err := sproxy.ServeTcp(l, sproxy.ServeHttpProxy)
+			if err != nil {
+				log.Err(err.Error())
+			}
 			wg.Done()
 		}()
 	}
 	for _, l := range conf.GetListener("sni_proxy") {
-		log.Debug("start to listen " + l.String())
+		log.Debug("start to listen " + l)
 		wg.Add(1)
 		go func() {
-			sproxy.ServeTcp(l, sproxy.ServeSniProxy)
+			err := sproxy.ServeTcp(l, sproxy.ServeSniProxy)
+			if err != nil {
+				log.Err(err.Error())
+			}
 			wg.Done()
 		}()
 	}
 	for _, l := range conf.GetListener("http_tunnel") {
-		log.Debug("start to listen " + l.String())
+		log.Debug("start to listen " + l)
 		wg.Add(1)
 		go func() {
-			sproxy.ServeTcp(l, sproxy.ServeHttpTunnelProxy)
+			err := sproxy.ServeTcp(l, sproxy.ServeHttpTunnelProxy)
+			if err != nil {
+				log.Err(err.Error())
+			}
 			wg.Done()
 		}()
 	}
