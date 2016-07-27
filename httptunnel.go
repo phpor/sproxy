@@ -28,7 +28,7 @@ func ServeHttpTunnelProxy(downstream net.Conn)  {
 	}
 	target := arr[1]
 
-	upstream, err := createUpstream(target)
+	upstream, err := createUpstream(target, downstream)
 	if err != nil {
 		if err == ErrAccessForbidden {
 			downstream.Write([]byte("HTTP/1.1 403 FORBIDEN\r\n\r\n"))

@@ -81,7 +81,7 @@ func ServeTcp(l string, handler func(net.Conn)) error {
 	return nil
 }
 
-func createUpstream(hostname string) (net.Conn, error)  {
+func createUpstream(hostname string, downstream net.Conn) (net.Conn, error)  {
 	port := ""
 	target := hostname
 	arrTarget := strings.Split(target, ":")
@@ -90,14 +90,18 @@ func createUpstream(hostname string) (net.Conn, error)  {
 		port = arrTarget[1]
 	}
 
-	backendAddr := conf.GetBackend(hostname)
+	if conf.whitelist != nil { //当白名单为空时全部允许
+		backendAddr := conf.GetBackend(hostname)
 
-	if backendAddr == "" {
-		log.Warning(ErrAccessForbidden.Error() + ": " + hostname)
-		return nil, ErrAccessForbidden
-	}
-	if port == "" {
-		port = strings.Split(backendAddr, ":")[1]
+		if backendAddr == "" {
+			log.Warning(ErrAccessForbidden.Error() + ": " + hostname)
+			return nil, ErrAccessForbidden
+		}
+		if port == "" {
+			port = strings.Split(backendAddr, ":")[1]
+		}
+	} else {
+		port = strings.Split(downstream.LocalAddr().String(), ":")[1]
 	}
 
 	hostip, err := nslookup(hostname)

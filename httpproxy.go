@@ -43,7 +43,7 @@ func ServeHttpProxy(downstream net.Conn)  {
 			line = line[:0]
 		}
 	}
-	upstream, err := createUpstream(hostname+":"+port)
+	upstream, err := createUpstream(hostname+":"+port, downstream)
 	if err != nil {
 		if err == ErrAccessForbidden {
 			downstream.Write([]byte("HTTP/1.1 403 FORBIDEN\r\n\r\n"))

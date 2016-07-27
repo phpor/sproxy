@@ -24,7 +24,7 @@ func ServeSniProxy(downstream net.Conn)  {
 		return
 	}
 	hostname := clientHelloMsg.ServerName
-	upstream, err := createUpstream(hostname)
+	upstream, err := createUpstream(hostname, downstream)
 	if err != nil {
 		return
 	}

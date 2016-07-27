@@ -82,10 +82,16 @@ func (c *config) parseWhitelist(data map[string]interface{})  {
 	c.whitelist = parseStrSlice(data, "whitelist")
 }
 func parseStrSlice(data map[string]interface{}, alias string) (res []string) {
-	if v, exists := data[alias]; exists {
-		for _, v := range v.([]interface{}) {
-			res = append(res, v.(string))
-		}
+	v, exists := data[alias]
+	if !exists {
+		return
+	}
+	if _,ok := v.([]interface{}); !ok {
+		return
+	}
+
+	for _, v := range v.([]interface{}) {
+		res = append(res, v.(string))
 	}
 	return
 }
