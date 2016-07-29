@@ -30,7 +30,7 @@ func main() {
 		log.Debug("start to listen " + l)
 		wg.Add(1)
 		go func() {
-			err := sproxy.ServeTcp(l, sproxy.ServeHttpProxy)
+			err := sproxy.ServeTcp(l, sproxy.ServeHttp)
 			if err != nil {
 				log.Err(err.Error())
 			}
@@ -48,17 +48,7 @@ func main() {
 			wg.Done()
 		}()
 	}
-	for _, l := range conf.GetListener("http_tunnel") {
-		log.Debug("start to listen " + l)
-		wg.Add(1)
-		go func() {
-			err := sproxy.ServeTcp(l, sproxy.ServeHttpTunnelProxy)
-			if err != nil {
-				log.Err(err.Error())
-			}
-			wg.Done()
-		}()
-	}
+
 	log.Debug("Started")
 	c := make(chan os.Signal, 10)
 	signal.Notify(c, syscall.SIGINT, syscall.SIGHUP)

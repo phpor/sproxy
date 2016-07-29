@@ -8,7 +8,7 @@ import (
 )
 
 
-func ServeSniProxy(downstream net.Conn)  {
+func ServeSniProxy(downstream net.Conn) error {
 	defer func() {
 		downstream.Close()
 		Stats.CurrentTaskNum--
@@ -17,24 +17,25 @@ func ServeSniProxy(downstream net.Conn)  {
 	clientHelloMsg, err := tls.ReadClientHello(downstream)
 	if err != nil {
 		log.Err("Error read client hello:  " + err.Error())
-		return
+		return err
 	}
 	if clientHelloMsg.ServerName == "" {
 		log.Warning("Client has no sni: "+ downstream.LocalAddr().String() +" <= "+ downstream.RemoteAddr().String())
-		return
+		return err
 	}
 	hostname := clientHelloMsg.ServerName
 	upstream, err := createUpstream(hostname, downstream)
 	if err != nil {
-		return
+		return err
 	}
 	defer upstream.Close()
 
 	_, err = io.WriteString(upstream, string(clientHelloMsg.RawData))
 	if err != nil {
 		log.Warning(fmt.Sprintf("Write client hello fail: %s", err.Error()))
-		return
+		return err
 	}
 
 	ioCopy(downstream, upstream)
+	return nil
 }

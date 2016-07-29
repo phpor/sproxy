@@ -5,9 +5,6 @@ listen:
  sni_proxy:
    - ":443"
 
- http_tunnel:
-   - ":3128"
-
 whitelist:
   - "www.baidu.com:443"
   - "www.baidu.com:80"

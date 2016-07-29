@@ -8,12 +8,14 @@ import (
 	"io"
 )
 
-func ServeHttpProxy(downstream net.Conn)  {
+func serveHttpProxy(downstream net.Conn, firstLine string) error {
 	defer func() {
 		downstream.Close()
 		Stats.CurrentTaskNum--
 	}()
-	var headerLine []string
+
+
+	headerLine := []string{firstLine}
 	rd := bufio.NewReader(downstream)
 	var line []byte
 	hostname := ""
@@ -22,7 +24,7 @@ func ServeHttpProxy(downstream net.Conn)  {
 		_line, hasRemain, err := rd.ReadLine()
 		if err != nil {
 			log.Warning("Read error on: " + downstream.RemoteAddr().String())
-			return
+			return err
 		}
 		line = append(line, _line...)
 		if len(line) == 0 {
@@ -48,7 +50,7 @@ func ServeHttpProxy(downstream net.Conn)  {
 		if err == ErrAccessForbidden {
 			downstream.Write([]byte("HTTP/1.1 403 FORBIDEN\r\n\r\n"))
 		}
-		return
+		return err
 	}
 	defer upstream.Close()
 
@@ -60,5 +62,6 @@ func ServeHttpProxy(downstream net.Conn)  {
 	}
 
 	ioCopy(downstream, upstream)
+	return nil
 }
 

@@ -14,6 +14,7 @@ import (
 	"errors"
 )
 var ErrAccessForbidden = errors.New("Access deny")
+var ErrReadDownStream = errors.New("Read Downstream fail")
 
 var log *syslog.Writer
 var conf *config
@@ -25,7 +26,7 @@ func SetConfig(config *config)  {
 	conf = config
 }
 
-func ServeTcp(l string, handler func(net.Conn)) error {
+func ServeTcp(l string, handler func(net.Conn)(error)) error {
 	ln, err := net.Listen("tcp4", l)
 
 	if err != nil {
@@ -79,6 +80,37 @@ func ServeTcp(l string, handler func(net.Conn)) error {
 	}
 	wg.Wait()
 	return nil
+}
+func readLine(conn net.Conn) ([]byte, error)  {
+	var buf = make([]byte, 1)
+	var slice []byte
+	var err error
+	for {
+		_, err = conn.Read(buf)
+		if err != nil {
+			break
+		}
+		if buf[0] == '\n' {
+			return slice[:len(slice)-1], nil
+		}
+		slice = append(slice, buf...)
+	}
+	return nil, err
+}
+func ServeHttp(downstream net.Conn) error {
+	firstLine, err := readLine(downstream)
+	if err != nil {
+		log.Warning("read header line fail")
+		downstream.Close()
+		return ErrReadDownStream
+	}
+	arr := strings.Split(string(firstLine), " ")
+	method := arr[0]
+	if method == "CONNECT" {
+		return serveHttpTunnelProxy(downstream, string(firstLine))
+	}
+
+	return serveHttpProxy(downstream, string(firstLine))
 }
 
 func createUpstream(hostname string, downstream net.Conn) (net.Conn, error)  {
