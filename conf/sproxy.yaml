@@ -6,11 +6,9 @@ listen:
    - ":443"
 
 whitelist:
-  - "www.baidu.com:443"
-  - "www.baidu.com:80"
 
 dnsresolver:
-  - "172.16.10.4"
+  - "114.114.114.114"
 
 timeout:
   dns_resolve: 1000
