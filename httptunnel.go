@@ -35,7 +35,7 @@ func serveHttpTunnelProxy(downstream net.Conn, firstLine string) error {
 			break
 		}
 	}
-	downstream.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
+	downstream.Write([]byte("HTTP/1.1 200 Connection established\r\n\r\n"))
 
 	ioCopy(downstream, upstream)
 	return nil
