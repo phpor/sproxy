@@ -3,14 +3,23 @@ package sproxy
 import (
 	"github.com/astaxie/beego/config/yaml"
 	"strings"
+	"path/filepath"
 )
 
+
+type https struct  {
+	Addr string
+	Cert string
+	Key string
+}
 
 type config struct {
 	timeout map[string]int64
 	dnsResolver []string
 	listenner map[string][]string
 	whitelist []string
+	Https map[string]https
+	confPath string
 }
 
 func NewConfig(conf_file string) *config {
@@ -25,11 +34,35 @@ func NewConfig(conf_file string) *config {
 		listenner: make(map[string][]string),
 		whitelist: nil,
 	}
+	c.confPath = conf_file
 	c.parseListener(conf_data)
 	c.parseTimeout(conf_data)
 	c.parseDnsResolver(conf_data)
 	c.parseWhitelist(conf_data)
+	c.parseHttps(conf_data)
 	return c
+}
+
+func (c * config) parseHttps(data map[string]interface{}) {
+	res := map[string]https{}
+	confBaseDir := filepath.Dir(c.confPath)
+	if _https, exists := data["https"]; exists {
+		for group, item := range _https.(map[string]interface{}) {
+			_item := item.(map[string]interface{})
+			var h https
+			h.Addr = _item["addr"].(string)
+			h.Cert = _item["cert"].(string)
+			h.Key = _item["key"].(string)
+			if !filepath.IsAbs(h.Cert) {
+				h.Cert = confBaseDir + "/" + h.Cert
+			}
+			if !filepath.IsAbs(h.Key) {
+				h.Key = confBaseDir + "/" + h.Key
+			}
+			res[group] = h
+		}
+	}
+	c.Https = res
 }
 func (c *config) GetListener(alias string) []string {
 	return c.listenner[alias]

@@ -1,4 +1,7 @@
 listen:
+ https_proxy:
+   - ":3129"
+
  http_proxy:
    - ":80"
 
@@ -6,6 +9,12 @@ listen:
    - ":443"
 
 whitelist:
+
+https:
+  server1:
+    addr: ":3129"
+    cert: "./ssl/phpor.net.cert"
+    key: "./ssl/phpor.net.key"
 
 dnsresolver:
   - "114.114.114.114"

@@ -37,6 +37,17 @@ func main() {
 			wg.Done()
 		}()
 	}
+	for _, https := range conf.Https {
+		log.Debug("start to listen " + https.Addr)
+		wg.Add(1)
+		go func() {
+			err := sproxy.ServeTls(https.Addr, https.Cert, https.Key, sproxy.ServeHttp)
+			if err != nil {
+				log.Err(err.Error())
+			}
+			wg.Done()
+		}()
+	}
 	for _, l := range conf.GetListener("sni_proxy") {
 		log.Debug("start to listen " + l)
 		wg.Add(1)

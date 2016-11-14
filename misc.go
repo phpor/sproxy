@@ -12,6 +12,7 @@ import (
 	"io"
 	"strings"
 	"errors"
+	"crypto/tls"
 )
 var ErrAccessForbidden = errors.New("Access deny")
 var ErrReadDownStream = errors.New("Read Downstream fail")
@@ -32,6 +33,23 @@ func ServeTcp(l string, handler func(net.Conn)(error)) error {
 	if err != nil {
 		panic("error listening on tcp port "+ l + ":" + err.Error())
 	}
+	return ServeConn(ln , handler)
+}
+
+func ServeTls(l string, cert string, key string, handler func(net.Conn)(error)) error {
+
+	cer, err := tls.LoadX509KeyPair(cert, key)
+	if err != nil {
+		panic("load cert or key fail: " + err.Error())
+	}
+	config := &tls.Config{Certificates: []tls.Certificate{cer}}
+	ln, erl := tls.Listen("tcp", l, config)
+	if erl != nil {
+		panic("error listening on tcp port " + l + err.Error())
+	}
+	return ServeConn(ln , handler)
+}
+func ServeConn(ln net.Listener, handler func(net.Conn)(error)) error {
 
 	defer ln.Close()
 
@@ -47,7 +65,7 @@ func ServeTcp(l string, handler func(net.Conn)(error)) error {
 		downstream, err := ln.Accept() //这里不能直接处理信号,而是要在其它协程中接收到信号后，直接把ln给关掉，这里立刻就会返回失败
 		if err != nil { // 如何判断这个错误其实是ln close导致的？
 			if Stats.Stopping {
-				log.Err("Stopped listenner "+l)
+				log.Err("Stopped listenner "+ln.Addr().String())
 				break
 			}
 			if ne, ok := err.(net.Error); ok && ne.Temporary() {
@@ -74,7 +92,7 @@ func ServeTcp(l string, handler func(net.Conn)(error)) error {
 			s := time.Now()
 			handler(downstream)
 			e := time.Now()
-			log.Err(fmt.Sprintf("%s  client %s time use %d ms",l, downstream.RemoteAddr().String(), e.Sub(s).Nanoseconds()/1000000))
+			log.Err(fmt.Sprintf("%s  client %s time use %d ms",ln.Addr().String(), downstream.RemoteAddr().String(), e.Sub(s).Nanoseconds()/1000000))
 			wg.Done()
 		}()
 	}
@@ -100,7 +118,7 @@ func readLine(conn net.Conn) ([]byte, error)  {
 func ServeHttp(downstream net.Conn) error {
 	firstLine, err := readLine(downstream)
 	if err != nil {
-		log.Warning("read header line fail")
+		log.Warning("read header line fail: "+err.Error())
 		downstream.Close()
 		return ErrReadDownStream
 	}
@@ -133,7 +151,9 @@ func createUpstream(hostname string, downstream net.Conn) (net.Conn, error)  {
 			port = strings.Split(backendAddr, ":")[1]
 		}
 	} else {
-		port = strings.Split(downstream.LocalAddr().String(), ":")[1]
+		if port == "" {
+			port = strings.Split(downstream.LocalAddr().String(), ":")[1]
+		}
 	}
 
 	hostip, err := nslookup(hostname)
