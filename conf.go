@@ -7,10 +7,15 @@ import (
 )
 
 
-type https struct  {
+type HttpsConf struct  {
 	Addr string
 	Cert string
 	Key string
+	Backend string
+}
+type HttpConf struct  {
+	Addr string
+	Backend string
 }
 
 type config struct {
@@ -18,7 +23,8 @@ type config struct {
 	dnsResolver []string
 	listenner map[string][]string
 	whitelist []string
-	Https map[string]https
+	Https map[string]HttpsConf
+	Http map[string]HttpConf
 	confPath string
 }
 
@@ -39,17 +45,33 @@ func NewConfig(conf_file string) *config {
 	c.parseTimeout(conf_data)
 	c.parseDnsResolver(conf_data)
 	c.parseWhitelist(conf_data)
-	c.parseHttps(conf_data)
+	c.parseHttpsConf(conf_data)
+	c.parseHttpConf(conf_data)
 	return c
 }
 
-func (c * config) parseHttps(data map[string]interface{}) {
-	res := map[string]https{}
+func (c * config) parseHttpConf(data map[string]interface{}) {
+	res := map[string]HttpConf{}
+	if _http, exists := data["http"]; exists {
+		for group, item := range _http.(map[string]interface{}) {
+			_item := item.(map[string]interface{})
+			var h HttpConf
+			h.Addr = _item["addr"].(string)
+			if backend, exists := _item["backend"]; exists {
+				h.Backend = backend.(string)
+			}
+			res[group] = h
+		}
+	}
+	c.Http = res
+}
+func (c * config) parseHttpsConf(data map[string]interface{}) {
+	res := map[string]HttpsConf{}
 	confBaseDir := filepath.Dir(c.confPath)
 	if _https, exists := data["https"]; exists {
 		for group, item := range _https.(map[string]interface{}) {
 			_item := item.(map[string]interface{})
-			var h https
+			var h HttpsConf
 			h.Addr = _item["addr"].(string)
 			h.Cert = _item["cert"].(string)
 			h.Key = _item["key"].(string)
@@ -58,6 +80,9 @@ func (c * config) parseHttps(data map[string]interface{}) {
 			}
 			if !filepath.IsAbs(h.Key) {
 				h.Key = confBaseDir + "/" + h.Key
+			}
+			if backend, exists := _item["backend"]; exists {
+				h.Backend = backend.(string)
 			}
 			res[group] = h
 		}

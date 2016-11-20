@@ -10,11 +10,17 @@ listen:
 
 whitelist:
 
+http:
+  server1:
+    addr: ":3128"
+    backend: "https://blog.phpor.net:3129"
+
 https:
   server1:
     addr: ":3129"
     cert: "./ssl/phpor.net.cert"
     key: "./ssl/phpor.net.key"
+    #backend: "https://blog.phpor.net:3129"
 
 dnsresolver:
   - "114.114.114.114"

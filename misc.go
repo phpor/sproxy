@@ -115,6 +115,19 @@ func readLine(conn net.Conn) ([]byte, error)  {
 	}
 	return nil, err
 }
+func ServeProxyInProxy(downstream net.Conn, proxyType string, config interface{}) error {
+	backend := ""
+	if  proxyType == "https" {
+		backend = config.(HttpsConf).Backend
+	}
+	if  proxyType == "http" {
+		backend = config.(HttpConf).Backend
+	}
+	if backend != "" {
+		return httpProxyInHttpProxy(downstream, backend)
+	}
+	return ServeHttp(downstream)
+}
 func ServeHttp(downstream net.Conn) error {
 	firstLine, err := readLine(downstream)
 	if err != nil {
@@ -161,7 +174,7 @@ func createUpstream(hostname string, downstream net.Conn) (net.Conn, error)  {
 		log.Warning("Nslookup fail: " + hostname)
 		return nil, err
 	}
-	fmt.Printf("access %s(%s):%s\n", hostname, hostip, port)
+	log.Debug(fmt.Sprintf("access %s(%s):%s\n", hostname, hostip, port))
 	dst := fmt.Sprintf("%s:%s", hostip, port)
 	upstream, err := net.Dial("tcp", dst)
 	if err != nil {

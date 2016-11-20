@@ -8,6 +8,7 @@ import (
 	"syscall"
 	"os/signal"
 	"sync"
+	"net"
 )
 
 func main() {
@@ -37,11 +38,26 @@ func main() {
 			wg.Done()
 		}()
 	}
-	for _, https := range conf.Https {
-		log.Debug("start to listen " + https.Addr)
+	for _, httpConf := range conf.Http {
+		log.Debug("start to listen " + httpConf.Addr)
 		wg.Add(1)
 		go func() {
-			err := sproxy.ServeTls(https.Addr, https.Cert, https.Key, sproxy.ServeHttp)
+			err := sproxy.ServeTcp(httpConf.Addr, func (downstream net.Conn) error {
+				return sproxy.ServeProxyInProxy(downstream, "http", httpConf)
+			})
+			if err != nil {
+				log.Err(err.Error())
+			}
+			wg.Done()
+		}()
+	}
+	for _, httpsConf := range conf.Https {
+		log.Debug("start to listen " + httpsConf.Addr)
+		wg.Add(1)
+		go func() {
+			err := sproxy.ServeTls(httpsConf.Addr, httpsConf.Cert, httpsConf.Key, func (downstream net.Conn) error {
+				return sproxy.ServeProxyInProxy(downstream, "https", httpsConf)
+			})
 			if err != nil {
 				log.Err(err.Error())
 			}

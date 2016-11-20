@@ -4,6 +4,9 @@ import (
 	"net"
 	"bufio"
 	"strings"
+	"net/url"
+	"fmt"
+	"crypto/tls"
 )
 
 
@@ -41,3 +44,47 @@ func serveHttpTunnelProxy(downstream net.Conn, firstLine string) error {
 	return nil
 }
 
+func httpProxyInHttpProxy(downstream net.Conn, backend string) error {
+	defer func() {
+		downstream.Close()
+		Stats.CurrentTaskNum--
+	}()
+
+	URL, err := url.Parse(backend)
+	if err != nil {
+		return err
+	}
+	host := URL.Host
+	port := ""
+	arr := strings.Split(host, ":")
+	ip := arr[0]
+	if len(arr) == 2 {
+		port = arr[1]
+	}
+	var upstream net.Conn
+	if URL.Scheme == "https" {
+		if port == "" {
+			port = "443"
+		}
+		ipPort := fmt.Sprintf("%s:%s", ip , port)
+		upstream,err = tls.Dial("tcp", ipPort, nil)
+	} else if URL.Scheme == "http" {
+		if port == "" {
+			port = "80"
+		}
+		ipPort := fmt.Sprintf("%s:%s", ip , port)
+		upstream,err = net.Dial("tcp", ipPort)
+
+	} else {
+		return fmt.Errorf("only support http or https backend")
+	}
+	if err != nil {
+		return err
+	}
+	defer func() {
+		upstream.Close()
+	}()
+
+	ioCopy(downstream, upstream)
+	return nil
+}
