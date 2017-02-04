@@ -11,9 +11,10 @@ listen:
 whitelist:
 
 http:
-  server1:
+  fanqiang:
     addr: ":3128"
-    backend: "https://blog.phpor.net:3129"
+    backend: "https://blog.phpor.net:1443"
+    backend_auth: "phpor:caizhaobushiren"
 
 https:
   server1:
@@ -21,6 +22,7 @@ https:
     cert: "./ssl/phpor.net.cert"
     key: "./ssl/phpor.net.key"
     #backend: "https://blog.phpor.net:3129"
+    basic_auth: "phpor:caizhaobushiren"
 
 dnsresolver:
   - "114.114.114.114"
