@@ -10,6 +10,7 @@ import (
 )
 
 func serveFtpProxy(downstream net.Conn, firstLine string) error {
+
 	defer func() {
 		downstream.Close()
 		Stats.CurrentTaskNum--
@@ -31,7 +32,7 @@ func serveFtpProxy(downstream net.Conn, firstLine string) error {
 
 	//acl
 	ftp.Connect(host, port)
-	ftp.Login(Url.User.Username(), Url.User.Password())
+	//ftp.Login(Url.User.Username(), Url.User.Password())
 	if ftp.Code != 230 {
 		return fmt.Errorf(ftp.Message)
 	}
@@ -39,6 +40,7 @@ func serveFtpProxy(downstream net.Conn, firstLine string) error {
 	if method == "POST" {
 		// 文件的上传和下载没有实现
 	}
+
 	return nil
 }
 
@@ -48,7 +50,7 @@ func eatHeader(stream net.Conn) error {
 		if err != nil {
 			return err
 		}
-		if line == "\r\n" || line == "\n" {
+		if line[len(line)-1:][0] == '\n' {
 			break
 		}
 	}

@@ -13,7 +13,7 @@ import (
 	"strings"
 	"errors"
 	"crypto/tls"
-	"github.com/golang/net/proxy"
+	"golang.org/x/net/proxy"
 )
 var ErrAccessForbidden = errors.New("Access deny")
 var ErrReadDownStream = errors.New("Read Downstream fail")
@@ -169,7 +169,7 @@ func createUpstream(hostname string, downstream net.Conn) (net.Conn, error)  {
 			port = strings.Split(downstream.LocalAddr().String(), ":")[1]
 		}
 	}
-	upstream, err := net.Dial("tcp", hostname)
+	upstream, err := proxy.FromEnvironment().Dial("tcp", hostname)
 	/*
 	hostip, err := nslookup(hostname)
 	if err != nil {
