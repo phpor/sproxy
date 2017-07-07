@@ -169,19 +169,27 @@ func createUpstream(hostname string, downstream net.Conn) (net.Conn, error)  {
 			port = strings.Split(downstream.LocalAddr().String(), ":")[1]
 		}
 	}
-	upstream, err := proxy.FromEnvironment().Dial("tcp", hostname)
-	/*
-	hostip, err := nslookup(hostname)
-	if err != nil {
-		log.Warning("Nslookup fail: " + hostname)
-		return nil, err
+	remote_dns := os.Getenv("REMOTE_DNS")
+	dst := ""
+	if remote_dns != "on" {
+		hostip, err := nslookup(hostname)
+		if err != nil {
+			log.Warning("Nslookup fail: " + hostname)
+			return nil, err
+		}
+
+		log.Debug(fmt.Sprintf("access %s(%s):%s\n", hostname, hostip, port))
+		dst = fmt.Sprintf("%s:%s", hostip, port)
+	} else {
+		log.Debug(fmt.Sprintf("access %s:%s\n", hostname, port))
+		dst = fmt.Sprintf("%s:%s", hostname, port)
 	}
-	log.Debug(fmt.Sprintf("access %s(%s):%s\n", hostname, hostip, port))
-	dst := fmt.Sprintf("%s:%s", hostip, port)
+	upstream, err := proxy.FromEnvironment().Dial("tcp", dst)
+	/*
 	upstream, err := net.Dial("tcp", dst)
 	*/
 	if err != nil {
-		log.Warning(fmt.Sprintf("connect %s fail\n", hostname))
+		log.Warning(fmt.Sprintf("connect %s fail\n", dst))
 		return nil, err
 	}
 	return upstream, nil
