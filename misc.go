@@ -91,7 +91,7 @@ func ServeConn(ln net.Listener, handler func(net.Conn)(error)) error {
 		go func() {
 			//设置超时
 			s := time.Now()
-			handler(downstream)
+			handler(NewTimeoutConn(downstream, time.Duration(conf.GetTimeout("client_read"))))
 			e := time.Now()
 			log.Err(fmt.Sprintf("%s  client %s time use %d ms",ln.Addr().String(), downstream.RemoteAddr().String(), e.Sub(s).Nanoseconds()/1000000))
 			wg.Done()
@@ -192,7 +192,7 @@ func createUpstream(hostname string, downstream net.Conn) (net.Conn, error)  {
 		log.Warning(fmt.Sprintf("connect %s fail\n", dst))
 		return nil, err
 	}
-	return upstream, nil
+	return NewTimeoutConn(upstream, time.Duration(conf.GetTimeout("upstream_read"))), nil
 }
 func ioCopy(downstream, upstream net.Conn) (int64, int64) {
 	var len_up int64
