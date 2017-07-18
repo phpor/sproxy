@@ -131,8 +131,9 @@ func (c *config) parseDnsResolver(data map[string]interface{}){
 }
 func (c *config) parseTimeout(data map[string]interface{}) {
 	if v, exists := data["timeout"]; exists {
-		for k, v := range v.(map[string]interface{}) {
-			c.timeout[k] = v.(int64)
+		for k, _v := range v.(map[string]interface{}) {
+
+			c.timeout[k] = _v.(int64)
 		}
 	}
 }
