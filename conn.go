@@ -3,6 +3,7 @@ package sproxy
 import (
 	"net"
 	"time"
+	"github.com/phpor/sproxy/proxy"
 )
 
 type stats struct {
@@ -36,3 +37,19 @@ func (c *TimeoutConn) Write(b []byte) (n int, err error) {
 	c.SetWriteDeadline(time.Now().Add(c.timeout))
 	return c.Write(b)
 }
+
+
+type TimeoutDailer struct {
+	timeout time.Duration
+}
+
+func NewTimeoutDailer(timeout time.Duration) proxy.Dialer{
+	return &TimeoutDailer{
+		timeout,
+	}
+}
+
+func (d *TimeoutDailer) Dial(network, address string) (net.Conn, error) {
+	return net.DialTimeout(network, address, d.timeout)
+}
+

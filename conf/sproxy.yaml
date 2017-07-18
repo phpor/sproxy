@@ -28,10 +28,10 @@ dnsresolver:
   - "114.114.114.114"
 
 timeout:
-  dns_resolve: 1000
-  upstream_connect: 5000
-  upstream_read: 60000
-  client_read: 5000
+  dns_resolve: 1000       # ms (godns 目前还不支持配置超时时间)
+  upstream_connect: 5000  # ms
+  upstream_read: 60000    # ms
+  client_read: 5000       # ms
 
 
 
