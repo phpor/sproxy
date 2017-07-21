@@ -4,6 +4,8 @@ import (
 	"github.com/astaxie/beego/config/yaml"
 	"strings"
 	"path/filepath"
+	"os"
+	"io/ioutil"
 )
 
 
@@ -139,7 +141,33 @@ func (c *config) parseTimeout(data map[string]interface{}) {
 }
 func (c *config) parseWhitelist(data map[string]interface{})  {
 	c.whitelist = parseStrSlice(data, "whitelist")
+	whitelistfile := parseStr(data, "whitelistfile")
+	if whitelistfile == "" {
+		return
+	}
+
+	bytes, err := ioutil.ReadFile(whitelistfile)
+	if err != nil {
+		return
+	}
+	arr := strings.Split(string(bytes), "\n")
+	for _,line := range arr {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		c.whitelist = append(c.whitelist, line)
+	}
 }
+
+func parseStr(data map[string]interface{}, alias string) string {
+	v, exists := data[alias]
+	if !exists {
+		return ""
+	}
+	return v.(string)
+}
+
 func parseStrSlice(data map[string]interface{}, alias string) (res []string) {
 	v, exists := data[alias]
 	if !exists {

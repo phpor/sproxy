@@ -12,7 +12,11 @@ import (
 )
 
 func main() {
-	conf_file := flag.String("c", "/Users/phpor/workspace/go/src/github.com/phpor/sproxy/conf/sproxy.yaml", "path to config file")
+	conf_file_path := os.Getenv("SPROXY_CONF_PATH")
+	if conf_file_path == "" {
+		conf_file_path = "/etc/sproxy/sproxy.yaml"
+	}
+	conf_file := flag.String("c", conf_file_path, "path to config file")
 	flag.Parse()
 	log, err := syslog.New(syslog.LOG_ERR|syslog.LOG_INFO|syslog.LOG_DEBUG|syslog.LOG_LOCAL0, "sproxy")
 	if err != nil {

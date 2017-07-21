@@ -9,6 +9,7 @@ listen:
    - ":443"
 
 whitelist:
+whitelistfile: ""
 
 http:
   fanqiang:
