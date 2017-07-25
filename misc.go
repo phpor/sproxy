@@ -154,19 +154,19 @@ func createUpstream(hostname string, downstream net.Conn) (net.Conn, error)  {
 		port = arrTarget[1]
 	}
 
-	if conf.whitelist != nil { //当白名单为空时全部允许
-		backendAddr := conf.GetBackend(hostname)
+	backendAddr := conf.GetBackend(hostname)
+	if port == "" {
+		if backendAddr != "" {
+			port = strings.Split(backendAddr, ":")[1]
+		} else {
+			port = strings.Split(downstream.LocalAddr().String(), ":")[1]
+		}
+	}
 
-		if backendAddr == "" {
+	if conf.whitelist != nil { //当白名单为空时全部允许
+		if ! conf.IsAccessAllow(hostname + ":" + port) {
 			log.Warning(ErrAccessForbidden.Error() + ": " + hostname)
 			return nil, ErrAccessForbidden
-		}
-		if port == "" {
-			port = strings.Split(backendAddr, ":")[1]
-		}
-	} else {
-		if port == "" {
-			port = strings.Split(downstream.LocalAddr().String(), ":")[1]
 		}
 	}
 	remote_dns := os.Getenv("REMOTE_DNS")

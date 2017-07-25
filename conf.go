@@ -145,10 +145,13 @@ func (c *config) parseWhitelist(data map[string]interface{})  {
 	if whitelistfile == "" {
 		return
 	}
-
+	_, err := os.Stat(whitelistfile)
+	if err != nil {
+		panic("stat " + whitelistfile + " fail: " + err.Error())
+	}
 	bytes, err := ioutil.ReadFile(whitelistfile)
 	if err != nil {
-		return
+		panic("read file " + whitelistfile + " fail: " + err.Error())
 	}
 	arr := strings.Split(string(bytes), "\n")
 	for _,line := range arr {
