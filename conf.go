@@ -103,9 +103,9 @@ func (c *config) GetTimeout(alias string) int64 {
 func (c *config) GetWhitelist() []string {
 	return c.whitelist
 }
-func (c *config) IsAccessAllow(hostport string)bool  {
+func (c *config) IsAccessAllow(host, port string)bool  {
 	for _, addr := range c.whitelist {
-		if addr == hostport {
+		if addr == host || addr == host + ":" + port {
 			return true
 		}
 	}
