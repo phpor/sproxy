@@ -1,43 +1,42 @@
 package sproxy
 
 import (
-	"log/syslog"
+	"crypto/tls"
+	"errors"
+	"fmt"
+	"github.com/phpor/sproxy/proxy"
+	"io"
 	"net"
-	"sync"
-	"syscall"
 	"os"
 	"os/signal"
-	"time"
-	"fmt"
-	"io"
 	"strings"
-	"errors"
-	"crypto/tls"
-	"github.com/phpor/sproxy/proxy"
+	"sync"
+	"syscall"
+	"time"
 )
+
 var ErrAccessForbidden = errors.New("Access deny")
 var ErrReadDownStream = errors.New("Read Downstream fail")
 
-var log *syslog.Writer
 var conf *config
 
-func SetLogger(l *syslog.Writer)  {
+func SetLogger(l Logger) {
 	log = l
 }
-func SetConfig(config *config)  {
+func SetConfig(config *config) {
 	conf = config
 }
 
-func ServeTcp(l string, handler func(net.Conn)(error)) error {
+func ServeTcp(l string, handler func(net.Conn) error) error {
 	ln, err := net.Listen("tcp4", l)
 
 	if err != nil {
-		panic("error listening on tcp port "+ l + ":" + err.Error())
+		panic("error listening on tcp port " + l + ":" + err.Error())
 	}
-	return ServeConn(ln , handler)
+	return ServeConn(ln, handler)
 }
 
-func ServeTls(l string, cert string, key string, handler func(net.Conn)(error)) error {
+func ServeTls(l string, cert string, key string, handler func(net.Conn) error) error {
 
 	cer, err := tls.LoadX509KeyPair(cert, key)
 	if err != nil {
@@ -48,9 +47,9 @@ func ServeTls(l string, cert string, key string, handler func(net.Conn)(error)) 
 	if erl != nil {
 		panic("error listening on tcp port " + l + err.Error())
 	}
-	return ServeConn(ln , handler)
+	return ServeConn(ln, handler)
 }
-func ServeConn(ln net.Listener, handler func(net.Conn)(error)) error {
+func ServeConn(ln net.Listener, handler func(net.Conn) error) error {
 
 	defer ln.Close()
 
@@ -60,13 +59,13 @@ func ServeConn(ln net.Listener, handler func(net.Conn)(error)) error {
 		<-s
 		ln.Close() //如果这个在main中open，则可以只在main中处理信号了，就不需要在每个listenner中处理信号了
 	}()
-	var wg sync.WaitGroup //确保每个层级的goroutine都能等子goroutine退出后自己才退出，才能保证不会中断未处理完成的请求
+	var wg sync.WaitGroup       //确保每个层级的goroutine都能等子goroutine退出后自己才退出，才能保证不会中断未处理完成的请求
 	var tempDelay time.Duration // how long to sleep on accept failure
 	for {
 		downstream, err := ln.Accept() //这里不能直接处理信号,而是要在其它协程中接收到信号后，直接把ln给关掉，这里立刻就会返回失败
-		if err != nil { // 如何判断这个错误其实是ln close导致的？
+		if err != nil {                // 如何判断这个错误其实是ln close导致的？
 			if Stats.Stopping {
-				log.Err("Stopped listenner "+ln.Addr().String())
+				log.Err("Stopped listenner " + ln.Addr().String())
 				break
 			}
 			if ne, ok := err.(net.Error); ok && ne.Temporary() {
@@ -91,16 +90,16 @@ func ServeConn(ln net.Listener, handler func(net.Conn)(error)) error {
 		go func() {
 			//设置超时
 			s := time.Now()
-			handler(NewTimeoutConn(downstream, time.Duration(conf.GetTimeout("client_read")) * time.Millisecond))
+			handler(NewTimeoutConn(downstream, time.Duration(conf.GetTimeout("client_read"))*time.Millisecond))
 			e := time.Now()
-			log.Err(fmt.Sprintf("%s  client %s time use %d ms",ln.Addr().String(), downstream.RemoteAddr().String(), e.Sub(s).Nanoseconds()/1000000))
+			log.Err(fmt.Sprintf("%s  client %s time use %d ms", ln.Addr().String(), downstream.RemoteAddr().String(), e.Sub(s).Nanoseconds()/1000000))
 			wg.Done()
 		}()
 	}
 	wg.Wait()
 	return nil
 }
-func readLine(conn net.Conn) ([]byte, error)  {
+func readLine(conn net.Conn) ([]byte, error) {
 	var buf = make([]byte, 1)
 	var slice []byte
 	var err error
@@ -118,10 +117,10 @@ func readLine(conn net.Conn) ([]byte, error)  {
 }
 func ServeProxyInProxy(downstream net.Conn, proxyType string, config interface{}) error {
 	backend := ""
-	if  proxyType == "https" {
+	if proxyType == "https" {
 		backend = config.(HttpsConf).Backend
 	}
-	if  proxyType == "http" {
+	if proxyType == "http" {
 		backend = config.(HttpConf).Backend
 	}
 	if backend != "" {
@@ -132,7 +131,7 @@ func ServeProxyInProxy(downstream net.Conn, proxyType string, config interface{}
 func ServeHttp(downstream net.Conn) error {
 	firstLine, err := readLine(downstream)
 	if err != nil {
-		log.Warning("read header line fail: "+err.Error())
+		log.Warning("read header line fail: " + err.Error())
 		downstream.Close()
 		return ErrReadDownStream
 	}
@@ -145,7 +144,7 @@ func ServeHttp(downstream net.Conn) error {
 	return serveHttpProxy(downstream, string(firstLine))
 }
 
-func createUpstream(hostname string, downstream net.Conn) (net.Conn, error)  {
+func createUpstream(hostname string, downstream net.Conn) (net.Conn, error) {
 	port := ""
 	target := hostname
 	arrTarget := strings.Split(target, ":")
@@ -155,11 +154,11 @@ func createUpstream(hostname string, downstream net.Conn) (net.Conn, error)  {
 	}
 
 	if port == "" {
-			port = strings.Split(downstream.LocalAddr().String(), ":")[1]
+		port = strings.Split(downstream.LocalAddr().String(), ":")[1]
 	}
 
 	if conf.whitelist != nil { //当白名单为空时全部允许
-		if ! conf.IsAccessAllow(hostname, port) {
+		if !conf.IsAccessAllow(hostname, port) {
 			log.Warning(ErrAccessForbidden.Error() + ": " + hostname)
 			return nil, ErrAccessForbidden
 		}
@@ -173,21 +172,23 @@ func createUpstream(hostname string, downstream net.Conn) (net.Conn, error)  {
 			return nil, err
 		}
 
-		log.Debug(fmt.Sprintf("access %s(%s):%s\n", hostname, hostip, port))
+		log.Debug(fmt.Sprintf("access %s(%s):%s", hostname, hostip, port))
 		dst = fmt.Sprintf("%s:%s", hostip, port)
 	} else {
-		log.Debug(fmt.Sprintf("access %s:%s\n", hostname, port))
+		log.Debug(fmt.Sprintf("access %s:%s", hostname, port))
 		dst = fmt.Sprintf("%s:%s", hostname, port)
 	}
-	upstream, err := proxy.FromEnvironment(NewTimeoutDailer(time.Duration(conf.GetTimeout("upstream_conn")) * time.Millisecond)).Dial("tcp", dst)
+	// Note: 目前这个proxy只能支持socket5代理，其它代理自动忽略，但是代码上允许扩展其它代理出来；设置方法; export all_proxy=socket5://127.0.0.1:1080
+	upstream, err := proxy.FromEnvironment(NewTimeoutDailer(time.Duration(conf.GetTimeout("upstream_conn"))*time.Millisecond)).Dial("tcp", dst)
+
 	/*
-	upstream, err := net.Dial("tcp", dst)
+		upstream, err := net.Dial("tcp", dst)
 	*/
 	if err != nil {
-		log.Warning(fmt.Sprintf("connect %s fail\n", dst))
+		log.Warning(fmt.Sprintf("connect %s fail", dst))
 		return nil, err
 	}
-	return NewTimeoutConn(upstream, time.Duration(conf.GetTimeout("upstream_read")) * time.Millisecond), nil
+	return NewTimeoutConn(upstream, time.Duration(conf.GetTimeout("upstream_read"))*time.Millisecond), nil
 }
 func ioCopy(downstream, upstream net.Conn) (int64, int64) {
 	var len_up int64
@@ -198,6 +199,6 @@ func ioCopy(downstream, upstream net.Conn) (int64, int64) {
 		downstream.Close() //这里的Close主要是为了让另外一个方向的copy立即退出， 重复Close不会导致错误
 		upstream.Close()
 	}()
-	len_down ,_ := io.Copy(downstream, upstream) //copy to downstream
+	len_down, _ := io.Copy(downstream, upstream) //copy to downstream
 	return len_down, len_up
 }

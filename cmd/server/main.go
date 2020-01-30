@@ -2,13 +2,12 @@ package main
 
 import (
 	"flag"
-	"log/syslog"
 	"github.com/phpor/sproxy"
+	"net"
 	"os"
-	"syscall"
 	"os/signal"
 	"sync"
-	"net"
+	"syscall"
 )
 
 func main() {
@@ -18,15 +17,12 @@ func main() {
 	}
 	conf_file := flag.String("c", conf_file_path, "path to config file")
 	flag.Parse()
-	log, err := syslog.New(syslog.LOG_ERR|syslog.LOG_INFO|syslog.LOG_DEBUG|syslog.LOG_LOCAL0, "sproxy")
+	log, err := sproxy.NewLogger()
 	if err != nil {
-		panic("init logger fail")
+		panic(err)
 	}
 	sproxy.SetLogger(log)
 
-	if err != nil {
-		log.Err(err.Error())
-	}
 	conf := sproxy.NewConfig(*conf_file)
 	sproxy.SetConfig(conf)
 
@@ -46,7 +42,7 @@ func main() {
 		log.Debug("start to listen " + httpConf.Addr)
 		wg.Add(1)
 		go func() {
-			err := sproxy.ServeTcp(httpConf.Addr, func (downstream net.Conn) error {
+			err := sproxy.ServeTcp(httpConf.Addr, func(downstream net.Conn) error {
 				return sproxy.ServeProxyInProxy(downstream, "http", httpConf)
 			})
 			if err != nil {
@@ -59,7 +55,7 @@ func main() {
 		log.Debug("start to listen " + httpsConf.Addr)
 		wg.Add(1)
 		go func() {
-			err := sproxy.ServeTls(httpsConf.Addr, httpsConf.Cert, httpsConf.Key, func (downstream net.Conn) error {
+			err := sproxy.ServeTls(httpsConf.Addr, httpsConf.Cert, httpsConf.Key, func(downstream net.Conn) error {
 				return sproxy.ServeProxyInProxy(downstream, "https", httpsConf)
 			})
 			if err != nil {
@@ -88,6 +84,3 @@ func main() {
 	wg.Wait()
 	log.Info("Stopped")
 }
-
-
-

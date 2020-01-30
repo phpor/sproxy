@@ -1,18 +1,17 @@
 package sproxy
 
 import (
-	"net"
 	"bufio"
-	"strings"
-	"net/url"
-	"fmt"
 	"crypto/tls"
+	"fmt"
+	"net"
+	"net/url"
+	"strings"
 )
-
 
 func serveHttpTunnelProxy(downstream net.Conn, firstLine string) error {
 	defer func() {
-		downstream.Close()
+		_ = downstream.Close()
 		Stats.CurrentTaskNum--
 	}()
 	arr := strings.Split(firstLine, " ")
@@ -21,24 +20,26 @@ func serveHttpTunnelProxy(downstream net.Conn, firstLine string) error {
 	upstream, err := createUpstream(target, downstream)
 	if err != nil {
 		if err == ErrAccessForbidden {
-			downstream.Write([]byte("HTTP/1.1 403 FORBIDEN\r\n\r\n"))
+			_, _ = downstream.Write([]byte("HTTP/1.1 403 FORBIDEN\r\n\r\n"))
 		}
 		return err
 	}
-	defer upstream.Close()
+	defer func() {
+		_ = upstream.Close()
+	}()
 
 	rd := bufio.NewReader(downstream)
 	for {
 		line, hasRemain, err := rd.ReadLine()
 		if err != nil {
-			log.Warning("Read more header fail: "+ downstream.RemoteAddr().String())
+			_ = log.Warning("Read more header fail: " + downstream.RemoteAddr().String())
 			return err
 		}
 		if !hasRemain && len(line) == 0 {
 			break
 		}
 	}
-	downstream.Write([]byte("HTTP/1.1 200 Connection established\r\n\r\n"))
+	_, _ = downstream.Write([]byte("HTTP/1.1 200 Connection established\r\n\r\n"))
 
 	ioCopy(downstream, upstream)
 	return nil
@@ -46,7 +47,7 @@ func serveHttpTunnelProxy(downstream net.Conn, firstLine string) error {
 
 func httpProxyInHttpProxy(downstream net.Conn, backend string) error {
 	defer func() {
-		downstream.Close()
+		_ = downstream.Close()
 		Stats.CurrentTaskNum--
 	}()
 
@@ -66,14 +67,14 @@ func httpProxyInHttpProxy(downstream net.Conn, backend string) error {
 		if port == "" {
 			port = "443"
 		}
-		ipPort := fmt.Sprintf("%s:%s", ip , port)
-		upstream,err = tls.Dial("tcp", ipPort, nil)
+		ipPort := fmt.Sprintf("%s:%s", ip, port)
+		upstream, err = tls.Dial("tcp", ipPort, nil)
 	} else if URL.Scheme == "http" {
 		if port == "" {
 			port = "80"
 		}
-		ipPort := fmt.Sprintf("%s:%s", ip , port)
-		upstream,err = net.Dial("tcp", ipPort)
+		ipPort := fmt.Sprintf("%s:%s", ip, port)
+		upstream, err = net.Dial("tcp", ipPort)
 
 	} else {
 		return fmt.Errorf("only support http or https backend")
@@ -82,7 +83,7 @@ func httpProxyInHttpProxy(downstream net.Conn, backend string) error {
 		return err
 	}
 	defer func() {
-		upstream.Close()
+		_ = upstream.Close()
 	}()
 
 	ioCopy(downstream, upstream)
