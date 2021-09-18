@@ -1,10 +1,10 @@
 package main
 
 import (
+	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
-	"io/ioutil"
-	"fmt"
 )
 
 func main() {
@@ -12,7 +12,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	res, err :=  ioutil.ReadAll(resp.Body)
+	res, err := ioutil.ReadAll(resp.Body)
 
 	if err != nil {
 		panic(err)

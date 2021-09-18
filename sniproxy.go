@@ -2,25 +2,24 @@ package sproxy
 
 import (
 	"fmt"
-	"net"
 	"github.com/phpor/sproxy/tls"
 	"io"
+	"net"
 )
-
 
 func ServeSniProxy(downstream net.Conn) error {
 	defer func() {
-		downstream.Close()
+		_ = downstream.Close()
 		Stats.CurrentTaskNum--
 	}()
 	//set timeout to connection
 	clientHelloMsg, err := tls.ReadClientHello(downstream)
 	if err != nil {
-		log.Err("Error read client hello:  " + err.Error())
+		_ = log.Err("Error read client hello:  " + err.Error())
 		return err
 	}
 	if clientHelloMsg.ServerName == "" {
-		log.Warning("Client has no sni: "+ downstream.LocalAddr().String() +" <= "+ downstream.RemoteAddr().String())
+		_ = log.Warning("Client has no sni: " + downstream.LocalAddr().String() + " <= " + downstream.RemoteAddr().String())
 		return err
 	}
 	hostname := clientHelloMsg.ServerName
@@ -28,11 +27,13 @@ func ServeSniProxy(downstream net.Conn) error {
 	if err != nil {
 		return err
 	}
-	defer upstream.Close()
+	defer func(upstream net.Conn) {
+		_ = upstream.Close()
+	}(upstream)
 
 	_, err = io.WriteString(upstream, string(clientHelloMsg.RawData))
 	if err != nil {
-		log.Warning(fmt.Sprintf("Write client hello fail: %s", err.Error()))
+		_ = log.Warning(fmt.Sprintf("Write client hello fail: %s", err.Error()))
 		return err
 	}
 

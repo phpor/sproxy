@@ -1,46 +1,53 @@
 package sproxy
 
 import (
-	"github.com/astaxie/beego/config/yaml"
-	"strings"
-	"path/filepath"
-	"os"
+	"bytes"
+	"gopkg.in/yaml.v3"
 	"io/ioutil"
+	"os"
+	"path/filepath"
+	"strings"
 )
 
-
-type HttpsConf struct  {
-	Addr string
-	Cert string
-	Key string
+type HttpsConf struct {
+	Addr    string
+	Cert    string
+	Key     string
 	Backend string
 }
-type HttpConf struct  {
-	Addr string
+type HttpConf struct {
+	Addr    string
 	Backend string
 }
 
 type config struct {
-	timeout map[string]int64
+	timeout     map[string]int64
 	dnsResolver []string
-	listenner map[string][]string
-	whitelist []string
-	Https map[string]HttpsConf
-	Http map[string]HttpConf
-	confPath string
+	listenner   map[string][]string
+	whitelist   []string
+	Https       map[string]HttpsConf
+	Http        map[string]HttpConf
+	confPath    string
 }
 
 func NewConfig(conf_file string) *config {
-	conf_data, err := yaml.ReadYmlReader(conf_file)
+	b, err := ioutil.ReadFile(conf_file)
+	if err != nil {
+		panic("read file " + conf_file + " fail: " + err.Error())
+	}
+	decoder := yaml.NewDecoder(bytes.NewReader(b))
+	conf_data := map[string]interface{}{}
+	err = decoder.Decode(conf_data)
+
 	if err != nil {
 		panic("load config file " + conf_file + " fail: " + err.Error())
 	}
 
 	c := &config{
-		timeout: make(map[string]int64),
+		timeout:     make(map[string]int64),
 		dnsResolver: nil,
-		listenner: make(map[string][]string),
-		whitelist: nil,
+		listenner:   make(map[string][]string),
+		whitelist:   nil,
 	}
 	c.confPath = conf_file
 	c.parseListener(conf_data)
@@ -52,7 +59,7 @@ func NewConfig(conf_file string) *config {
 	return c
 }
 
-func (c * config) parseHttpConf(data map[string]interface{}) {
+func (c *config) parseHttpConf(data map[string]interface{}) {
 	res := map[string]HttpConf{}
 	if _http, exists := data["http"]; exists {
 		for group, item := range _http.(map[string]interface{}) {
@@ -67,7 +74,7 @@ func (c * config) parseHttpConf(data map[string]interface{}) {
 	}
 	c.Http = res
 }
-func (c * config) parseHttpsConf(data map[string]interface{}) {
+func (c *config) parseHttpsConf(data map[string]interface{}) {
 	res := map[string]HttpsConf{}
 	confBaseDir := filepath.Dir(c.confPath)
 	if _https, exists := data["https"]; exists {
@@ -103,15 +110,15 @@ func (c *config) GetTimeout(alias string) int64 {
 func (c *config) GetWhitelist() []string {
 	return c.whitelist
 }
-func (c *config) IsAccessAllow(host, port string)bool  {
+func (c *config) IsAccessAllow(host, port string) bool {
 	for _, addr := range c.whitelist {
-		if addr == host || addr == host + ":" + port {
+		if addr == host || addr == host+":"+port {
 			return true
 		}
 	}
 	return false
 }
-func (c *config) GetBackend(host string) string  {
+func (c *config) GetBackend(host string) string {
 	for _, addr := range c.whitelist {
 		if strings.Split(addr, ":")[0] == host {
 			return addr
@@ -123,23 +130,23 @@ func (c *config) GetBackend(host string) string  {
 func (c *config) parseListener(data map[string]interface{}) {
 	if v, exists := data["listen"]; exists {
 		item := v.(map[string]interface{})
-		for k, _ := range item {
+		for k := range item {
 			c.listenner[k] = parseStrSlice(item, k)
 		}
 	}
 }
-func (c *config) parseDnsResolver(data map[string]interface{}){
+func (c *config) parseDnsResolver(data map[string]interface{}) {
 	c.dnsResolver = parseStrSlice(data, "dnsresolver")
 }
 func (c *config) parseTimeout(data map[string]interface{}) {
 	if v, exists := data["timeout"]; exists {
 		for k, _v := range v.(map[string]interface{}) {
 
-			c.timeout[k] = _v.(int64)
+			c.timeout[k] = int64(_v.(int))
 		}
 	}
 }
-func (c *config) parseWhitelist(data map[string]interface{})  {
+func (c *config) parseWhitelist(data map[string]interface{}) {
 	c.whitelist = parseStrSlice(data, "whitelist")
 	whitelistfile := parseStr(data, "whitelistfile")
 	if whitelistfile == "" {
@@ -149,12 +156,12 @@ func (c *config) parseWhitelist(data map[string]interface{})  {
 	if err != nil {
 		panic("stat " + whitelistfile + " fail: " + err.Error())
 	}
-	bytes, err := ioutil.ReadFile(whitelistfile)
+	content, err := ioutil.ReadFile(whitelistfile)
 	if err != nil {
 		panic("read file " + whitelistfile + " fail: " + err.Error())
 	}
-	arr := strings.Split(string(bytes), "\n")
-	for _,line := range arr {
+	arr := strings.Split(string(content), "\n")
+	for _, line := range arr {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
@@ -176,7 +183,7 @@ func parseStrSlice(data map[string]interface{}, alias string) (res []string) {
 	if !exists {
 		return
 	}
-	if _,ok := v.([]interface{}); !ok {
+	if _, ok := v.([]interface{}); !ok {
 		return
 	}
 

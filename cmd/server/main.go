@@ -30,18 +30,18 @@ func main() {
 	for _, l := range conf.GetListener("http_proxy") {
 		log.Debug("start to listen " + l)
 		wg.Add(1)
-		go func() {
+		go func(l string) {
 			err := sproxy.ServeTcp(l, sproxy.ServeHttp)
 			if err != nil {
 				log.Err(err.Error())
 			}
 			wg.Done()
-		}()
+		}(l)
 	}
 	for _, httpConf := range conf.Http {
 		log.Debug("start to listen " + httpConf.Addr)
 		wg.Add(1)
-		go func() {
+		go func(httpConf sproxy.HttpConf) {
 			err := sproxy.ServeTcp(httpConf.Addr, func(downstream net.Conn) error {
 				return sproxy.ServeProxyInProxy(downstream, "http", httpConf)
 			})
@@ -49,12 +49,12 @@ func main() {
 				log.Err(err.Error())
 			}
 			wg.Done()
-		}()
+		}(httpConf)
 	}
 	for _, httpsConf := range conf.Https {
 		log.Debug("start to listen " + httpsConf.Addr)
 		wg.Add(1)
-		go func() {
+		go func(httpsConf sproxy.HttpsConf) {
 			err := sproxy.ServeTls(httpsConf.Addr, httpsConf.Cert, httpsConf.Key, func(downstream net.Conn) error {
 				return sproxy.ServeProxyInProxy(downstream, "https", httpsConf)
 			})
@@ -62,18 +62,18 @@ func main() {
 				log.Err(err.Error())
 			}
 			wg.Done()
-		}()
+		}(httpsConf)
 	}
 	for _, l := range conf.GetListener("sni_proxy") {
 		log.Debug("start to listen " + l)
 		wg.Add(1)
-		go func() {
+		go func(l string) {
 			err := sproxy.ServeTcp(l, sproxy.ServeSniProxy)
 			if err != nil {
 				log.Err(err.Error())
 			}
 			wg.Done()
-		}()
+		}(l)
 	}
 
 	log.Debug("Started")
