@@ -76,11 +76,17 @@ func main() {
 		}(l)
 	}
 
-	log.Debug("Started")
-	c := make(chan os.Signal, 10)
-	signal.Notify(c, syscall.SIGINT, syscall.SIGHUP)
-	<-c
+	_ = log.Debug("Started")
+	chSigHup := make(chan os.Signal, 10)
+	signal.Notify(chSigHup, syscall.SIGHUP)
+	chSigInt := make(chan os.Signal, 10)
+	signal.Notify(chSigInt, syscall.SIGINT)
+	go func() {
+		<-chSigInt
+		os.Exit(1)
+	}()
+	<-chSigHup
 	sproxy.Stats.Stopping = true
 	wg.Wait()
-	log.Info("Stopped")
+	_ = log.Info("Stopped")
 }

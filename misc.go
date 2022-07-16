@@ -183,7 +183,7 @@ func createUpstream(hostname string, downstream net.Conn) (net.Conn, error) {
 		dst = fmt.Sprintf("%s:%s", hostname, port)
 	}
 	//todo: 判断目标主机是本机的话就不给代理
-	// Note: 目前这个proxy只能支持socket5代理，其它代理自动忽略，但是代码上允许扩展其它代理出来；设置方法; export all_proxy=socket5://127.0.0.1:1080
+	// Note: 目前这个proxy只能支持socket5代理，其它代理自动忽略，但是代码上允许扩展其它代理出来；设置方法; export all_proxy=socks5://127.0.0.1:1080
 	upstream, err := proxy.FromEnvironment(NewTimeoutDailer(time.Duration(conf.GetTimeout("upstream_conn"))*time.Millisecond)).Dial("tcp", dst)
 
 	/*
